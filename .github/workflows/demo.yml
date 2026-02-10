@@ -20,7 +20,7 @@ jobs:
           files=($names)
           for file in "${files[@]}"; do
             if [[ $file == *amd64* ]]; then
-              echo "name=$files[0]" >> $GITHUB_OUTPUT
+              echo "name=$file" >> $GITHUB_OUTPUT
               exit 1
             fi
           done
