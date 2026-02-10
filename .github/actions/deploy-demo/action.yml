@@ -1,0 +1,40 @@
+name: Deploy Demo
+description: Build and deploy a charm to the Canonical web team demo service.
+inputs:
+  charm-root:
+    required: false
+    description: A path to the directory containing the charm.
+    default: ./
+  charm-path:
+    required: false
+    description: A path to a charm file.
+
+runs:
+  using: composite
+  steps:
+    - name: Package charm with Charmcraft
+      if: ${{ inputs.charm-path == '' }}
+      id: pack
+      uses: canonical/craft-actions/charmcraft/pack@main
+      with:
+        path: ${{ inputs.charm-root }}
+    - name: Get charm name
+      if: ${{ inputs.charm-path == '' }}
+      id: charm
+      run: |
+        names="${{ steps.pack.outputs.charms }}"
+        files=($names)
+        for file in "${files[@]}"; do
+          if [[ $file == *amd64* ]]; then
+            echo "${{ inputs.charm-root }}/$file" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+        done
+        # If an amd64 build wasn't found then fail the run.
+        exit 1
+    - uses: actions/upload-artifact@v6
+      if: ${{ inputs.charm-path != '' || steps.charm.outputs.name != '' }}
+      with:
+        name: "${{ github.event.repository.name }}-${{ github.event.number }}"
+        path: ${{ inputs.charm-path || steps.charm.outputs.name }}
+        retention-days: 1

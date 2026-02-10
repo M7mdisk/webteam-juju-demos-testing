@@ -3,7 +3,7 @@ on:
   pull_request:
 permissions: read-all
 jobs:
-  prettier:
+  demo:
     name: Publish Demo
     runs-on: ubuntu-latest
     steps:
@@ -26,9 +26,7 @@ jobs:
           done
           # If an amd64 build wasn't found then fail the run.
           exit 1
-      - uses: actions/upload-artifact@v6
-        if: ${{ steps.charm.outputs.name != '' }}
+      - name: Deploy demo
+        uses: ./.github/actions/deploy-demo
         with:
-          name: "${{ github.event.repository.name }}-${{ github.event.number }}"
-          path: ${{ steps.charm.outputs.name }}
-          retention-days: 1
+          charm-path: ${{ steps.charm.outputs.name }}
