@@ -25,7 +25,7 @@ jobs:
             fi
           done
       - uses: actions/upload-artifact@v6
-        if: ${{ steps.charm.outputs.name != "" }}
+        if: ${{ steps.charm.outputs.name != '' }}
         with:
           name: "${{ github.repository }}-${{ github.event.number }}"
           path: ${{ steps.charm.outputs.name }}
