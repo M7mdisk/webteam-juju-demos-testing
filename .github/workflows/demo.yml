@@ -1,0 +1,32 @@
+name: Demo
+on:
+  pull_request:
+permissions: read-all
+jobs:
+  prettier:
+    name: Publish Demo
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package charm with Charmcraft
+        id: pack
+        uses: canonical/craft-actions/charmcraft/pack@main
+        with:
+          path: "./charm"
+      - name: Get charm name
+        id: charm
+        run: |
+          names="${{ steps.pack.outputs.charms }}"
+          files=($names)
+          for file in "${files[@]}"; do
+            if [[ $file == *amd64* ]]; then
+              echo "name=$files[0]" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+          done
+      - uses: actions/upload-artifact@v6
+        if: ${{ steps.charm.outputs.name != "" }}
+        with:
+          name: "${{ github.repository }}-${{ github.event.number }}"
+          path: ${{ steps.charm.outputs.name }}
+          retention-days: 1

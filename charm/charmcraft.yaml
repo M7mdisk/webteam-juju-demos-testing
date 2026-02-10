@@ -1,0 +1,25 @@
+# This file configures Charmcraft.
+# See https://juju.is/docs/sdk/charmcraft-config for guidance.
+
+name: flask-app
+
+type: charm
+
+base: ubuntu@24.04
+platforms:
+  amd64:
+    build-on: [arm64]
+    build-for: [amd64]
+  arm64:
+    build-on: [arm64]
+    build-for: [arm64]
+
+# (Required)
+summary: A very short one-line summary of the Flask application.
+
+# (Required)
+description: |
+  A comprehensive overview of your Flask application.
+
+extensions:
+  - flask-framework
