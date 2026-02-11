@@ -1,0 +1,14 @@
+name: Demo Cleanup
+on:
+  pull_request:
+    types: [closed]
+permissions:
+  pull-requests: read-all
+jobs:
+  cleanup:
+    name: Remove Demo
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clean up demo
+        uses: ./.github/actions/cleanup-demo

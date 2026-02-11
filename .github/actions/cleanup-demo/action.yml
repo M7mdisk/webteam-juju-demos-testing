@@ -1,0 +1,16 @@
+name: Clean Up Demo
+description: Clean up a demo in the Canonical web team demo service.
+
+runs:
+  using: composite
+  steps:
+    - name: Get demo ID
+      id: unique-id
+      shell: bash
+      run: |
+        echo "id=${{ github.event.repository.name }}-${{ github.event.number }}" >> $GITHUB_OUTPUT
+    - uses: hashicorp/setup-terraform@v3
+    - name: TODO actually do the cleanup
+      shell: bash
+      run: |
+        echo "Remove the demo with id '${{ steps.unique-id.outputs.id }}' from the plan"
