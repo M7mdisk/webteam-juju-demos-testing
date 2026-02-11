@@ -1,6 +1,9 @@
 name: Deploy Demo
 description: Build and deploy a charm to the Canonical web team demo service.
 inputs:
+  demo-id:
+    required: true
+    description: The unique ID for this demo.
   charm-root:
     required: false
     description: A path to the directory containing the charm.
@@ -12,11 +15,6 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Get demo ID
-      id: unique-id
-      shell: bash
-      run: |
-        echo "id=${{ github.event.repository.name }}-${{ github.event.number }}" >> $GITHUB_OUTPUT
     - uses: hashicorp/setup-terraform@v3
     - name: Package charm with Charmcraft
       if: ${{ inputs.charm-path == '' }}
@@ -42,7 +40,9 @@ runs:
     - uses: actions/upload-artifact@v6
       if: ${{ inputs.charm-path != '' || steps.charm.outputs.name != '' }}
       with:
-        name: ${{ steps.unique-id.outputs.id }}
+        name: ${{ inputs.demo-id }}
         path: ${{ inputs.charm-path || steps.charm.outputs.name }}
         retention-days: 1
     - uses: ./.github/actions/demo-comment
+      with:
+        demo-id: ${{ inputs.demo-id }}
