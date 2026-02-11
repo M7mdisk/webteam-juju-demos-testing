@@ -1,6 +1,11 @@
 name: Demo
 on:
   pull_request:
+    types:
+      - closed
+      - opened
+      - reopened
+      - synchronize
 permissions:
   pull-requests: write
 
