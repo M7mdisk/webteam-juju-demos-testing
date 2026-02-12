@@ -75,6 +75,9 @@ runs:
         juju login jaas.ps7.canonical.com:443/k8s-jaas-ps7-jimm-jimm -c jaas-ps7
     - name: Deploy charm
       shell: bash
+      env:
+        JUJU_CLIENT_ID: ${{ secrets.DEMOS_JUJU_CLIENT_ID }}
+        JUJU_CLIENT_SECRET: ${{ secrets.DEMOS_JUJU_CLIENT_SECRET }}
       run: |
         CHARM_FILE="${{ inputs.charm-path || steps.charm.outputs.name }}"
         juju deploy "$CHARM_FILE" ${{ inputs.demo-id }} \
