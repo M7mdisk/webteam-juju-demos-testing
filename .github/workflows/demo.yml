@@ -186,7 +186,7 @@ jobs:
           JUJU_CLIENT_SECRET: ${{ secrets.DEMOS_JUJU_CLIENT_SECRET }}
         run: |
           CHARM_FILE=$(ls *.charm)
-          juju deploy "$CHARM_FILE" ${{ needs.setup.outputs.demo-id }} \
+          juju deploy "./$CHARM_FILE" ${{ needs.setup.outputs.demo-id }} \
             --resource flask-app-image=${{ steps.image-url.outputs.url }} \
             -m 795798e4-922f-49c7-9169-004ffc17df90@serviceaccount/k8s-webteam-demos-default
       
