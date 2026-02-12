@@ -10,6 +10,7 @@ on:
       - synchronize
 permissions:
   pull-requests: write
+  packages: write
 
 # Ensure only one demo runs at a time.
 concurrency:
@@ -26,3 +27,6 @@ jobs:
         uses: ./.github/actions/demo-service
         with:
           charm-root: ./charm
+        env:
+          DEMOS_JUJU_CLIENT_ID: ${{ secrets.DEMOS_JUJU_CLIENT_ID }}
+          DEMOS_JUJU_CLIENT_SECRET: ${{ secrets.DEMOS_JUJU_CLIENT_SECRET }}

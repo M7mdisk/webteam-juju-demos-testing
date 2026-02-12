@@ -16,6 +16,26 @@ runs:
   using: composite
   steps:
     - uses: hashicorp/setup-terraform@v3
+    - name: Setup LXD
+      uses: canonical/setup-lxd@main
+    - name: Setup rockcraft
+      shell: bash
+      run: sudo snap install rockcraft --classic
+    - name: Pack rock
+      shell: bash
+      run: rockcraft pack
+    - name: Set image URL
+      id: set_image_url
+      shell: bash
+      run: echo "image_url=ghcr.io/${{ github.repository }}:${{ inputs.demo-id }}" >> $GITHUB_OUTPUT
+    - name: Log in to GHCR
+      shell: bash
+      run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+    - name: Push rock to GHCR
+      shell: bash
+      run: |
+        ROCK_FILE=$(ls *.rock)
+        skopeo --insecure-policy copy oci-archive:$ROCK_FILE docker://${{ steps.set_image_url.outputs.image_url }} --dest-creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}"
     - name: Package charm with Charmcraft
       if: ${{ inputs.charm-path == '' }}
       id: pack
@@ -43,6 +63,24 @@ runs:
         name: ${{ inputs.demo-id }}
         path: ${{ inputs.charm-path || steps.charm.outputs.name }}
         retention-days: 1
+    - name: Install Juju
+      shell: bash
+      run: |
+        sudo snap install juju
+    - name: Authenticate with JAAS
+      shell: bash
+      env:
+        JUJU_CLIENT_ID: ${{ secrets.DEMOS_JUJU_CLIENT_ID }}
+        JUJU_CLIENT_SECRET: ${{ secrets.DEMOS_JUJU_CLIENT_SECRET }}
+      run: |
+        juju login jaas.ps7.canonical.com:443/k8s-jaas-ps7-jimm-jimm -c jaas-ps7
+    - name: Deploy charm
+      shell: bash
+      run: |
+        CHARM_FILE="${{ inputs.charm-path || steps.charm.outputs.name }}"
+        juju deploy "$CHARM_FILE" ${{ inputs.demo-id }} \
+          --resource flask-app-image=${{ steps.set_image_url.outputs.image_url }} \
+          -m 795798e4-922f-49c7-9169-004ffc17df90@serviceaccount/k8s-webteam-demos-default
     - uses: ./.github/actions/demo-comment
       with:
         demo-id: ${{ inputs.demo-id }}

@@ -9,7 +9,26 @@ runs:
   using: composite
   steps:
     - uses: hashicorp/setup-terraform@v3
-    - name: TODO actually do the cleanup
+    - name: Install Juju
       shell: bash
       run: |
-        echo "Remove the demo with id '${{ inputs.demo-id }}' from the plan"
+        sudo snap install juju
+    - name: Authenticate with JAAS
+      shell: bash
+      env:
+        JUJU_CLIENT_ID: ${{ secrets.DEMOS_JUJU_CLIENT_ID }}
+        JUJU_CLIENT_SECRET: ${{ secrets.DEMOS_JUJU_CLIENT_SECRET }}
+      run: |
+        juju login jaas.ps7.canonical.com:443/k8s-jaas-ps7-jimm-jimm -c jaas-ps7
+    - name: Remove charm deployment
+      shell: bash
+      run: |
+        juju remove-application ${{ inputs.demo-id }} -m 795798e4-922f-49c7-9169-004ffc17df90@serviceaccount/k8s-webteam-demos-default --force --no-prompt || true
+    - name: Delete GHCR image
+      shell: bash
+      continue-on-error: true
+      run: |
+        # Delete the package version from GHCR
+        IMAGE_NAME="${{ github.repository }}:${{ inputs.demo-id }}"
+        IMAGE_NAME_LOWER=$(echo "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')
+        gh api --method DELETE "/orgs/${{ github.repository_owner }}/packages/container/$(basename $IMAGE_NAME_LOWER)/versions" || true
