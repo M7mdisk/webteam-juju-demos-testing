@@ -45,22 +45,17 @@ runs:
       if: ${{ inputs.charm-path == '' }}
       id: pack
       shell: bash
-      run: charmcraft pack -v --project-dir ${{ inputs.charm-root }}
+      run: |
+        cd ${{ inputs.charm-root }}
+        charmcraft pack -v
+        CHARM_FILE=$(ls *.charm)
+        echo "charm_file=${CHARM_FILE}" >> $GITHUB_OUTPUT
     - name: Get charm name
       if: ${{ inputs.charm-path == '' }}
       id: charm
       shell: bash
       run: |
-        names="${{ steps.pack.outputs.charms }}"
-        files=($names)
-        for file in "${files[@]}"; do
-          if [[ $file == *amd64* ]]; then
-            echo "name=${{ inputs.charm-root }}/$file" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-        done
-        # If an amd64 build wasn't found then fail the run.
-        exit 1
+        echo "name=${{ inputs.charm-root }}/${{ steps.pack.outputs.charm_file }}" >> $GITHUB_OUTPUT
     - uses: actions/upload-artifact@v6
       if: ${{ inputs.charm-path != '' || steps.charm.outputs.name != '' }}
       with:
