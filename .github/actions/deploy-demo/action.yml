@@ -38,12 +38,14 @@ runs:
       run: |
         ROCK_FILE=$(ls *.rock)
         skopeo --insecure-policy copy oci-archive:$ROCK_FILE docker://${{ steps.set_image_url.outputs.image_url }} --dest-creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}"
+    - name: Setup charmcraft
+      shell: bash
+      run: sudo snap install charmcraft --classic --channel=latest/stable
     - name: Package charm with Charmcraft
       if: ${{ inputs.charm-path == '' }}
       id: pack
-      uses: canonical/craft-actions/charmcraft/pack@main
-      with:
-        path: ${{ inputs.charm-root }}
+      shell: bash
+      run: charmcraft pack -v --project-dir ${{ inputs.charm-root }}
     - name: Get charm name
       if: ${{ inputs.charm-path == '' }}
       id: charm
