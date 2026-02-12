@@ -55,7 +55,7 @@ runs:
           if (!demoServiceComment) {
             return;
           }
-          const output = demoServiceComment.body.replace(/Status: (\w+)/, `Status: ${process.env.ENABLED === "true" ? "enabled" : "disabled"}`);
+          const output = demoServiceComment.body.replace(/Status: (\w+)/, `Status: ${process.env.ENABLED ? "enabled" : "disabled"}`);
           github.rest.issues.updateComment({
             owner: context.repo.owner,
             repo: context.repo.repo,
