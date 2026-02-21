@@ -94,18 +94,19 @@ runs:
         name: ${{ inputs.demo-id }}
         path: ${{ inputs.charm-path || steps.charm.outputs.name }}
         retention-days: 1
+
     - name: Install Juju
       shell: bash
-      run: |
-        sudo snap install juju
+      run: sudo snap install juju
+
     - name: Authenticate with JAAS
       shell: bash
       env:
         JUJU_CLIENT_ID: ${{ secrets.DEMOS_JUJU_CLIENT_ID }}
         JUJU_CLIENT_SECRET: ${{ secrets.DEMOS_JUJU_CLIENT_SECRET }}
-      run: |
-        juju login jaas.ps7.canonical.com:443/k8s-jaas-ps7-jimm-jimm -c jaas-ps7
-    - name: Deploy charm
+      run: juju login jaas.ps7.canonical.com:443/k8s-jaas-ps7-jimm-jimm -c jaas-ps7
+
+    - name: Deploy charm via Juju CLI
       shell: bash
       env:
         JUJU_CLIENT_ID: ${{ secrets.DEMOS_JUJU_CLIENT_ID }}
@@ -115,6 +116,66 @@ runs:
         juju deploy ./"$CHARM_FILE" ${{ inputs.demo-id }} \
           --resource flask-app-image=${{ steps.set_image_url.outputs.image_url }} \
           -m 795798e4-922f-49c7-9169-004ffc17df90@serviceaccount/k8s-webteam-demos-default
+
+    - name: Write Terraform base config
+      shell: bash
+      run: |
+        cat > terraform/demo/_base.tf << 'EOF'
+        terraform {
+          required_providers {
+            juju = {
+              source  = "juju/juju"
+              version = "~> 1.1.0"
+            }
+          }
+        }
+
+        # Credentials via JUJU_CLIENT_ID and JUJU_CLIENT_SECRET environment variables.
+        provider "juju" {
+          controller_addresses = "jaas.ps7.canonical.com:443/k8s-jaas-ps7-jimm-jimm"
+        }
+
+        data "juju_model" "demos" {
+          owner = "795798e4-922f-49c7-9169-004ffc17df90@serviceaccount"
+          name  = "k8s-webteam-demos-default"
+        }
+
+        variable "demo_id" {
+          description = "Unique identifier for this demo (e.g. my-repo-pr42)."
+          type        = string
+        }
+        EOF
+
+    - name: Terraform init
+      shell: bash
+      run: terraform -chdir=terraform/demo init
+
+    - name: Run Juju imports
+      if: ${{ hashFiles('terraform/demo/juju_imports.sh') != '' }}
+      shell: bash
+      env:
+        JUJU_CLIENT_ID: ${{ secrets.DEMOS_JUJU_CLIENT_ID }}
+        JUJU_CLIENT_SECRET: ${{ secrets.DEMOS_JUJU_CLIENT_SECRET }}
+        TF_VAR_demo_id: ${{ inputs.demo-id }}
+        DEMO_ID: ${{ inputs.demo-id }}
+        MODEL_UUID: "40cad239-1fe9-497f-89a2-ce70ab3e33af"
+      run: bash terraform/demo/juju_imports.sh
+
+    - name: Terraform apply
+      shell: bash
+      env:
+        JUJU_CLIENT_ID: ${{ secrets.DEMOS_JUJU_CLIENT_ID }}
+        JUJU_CLIENT_SECRET: ${{ secrets.DEMOS_JUJU_CLIENT_SECRET }}
+        TF_VAR_demo_id: ${{ inputs.demo-id }}
+      run: terraform -chdir=terraform/demo apply -auto-approve
+
+    - name: Upload Terraform state
+      uses: actions/upload-artifact@v6
+      with:
+        name: tfstate-${{ inputs.demo-id }}
+        path: terraform/demo/terraform.tfstate
+        retention-days: 90
+
     - uses: ./.github/actions/demo-comment
       with:
         demo-id: ${{ inputs.demo-id }}

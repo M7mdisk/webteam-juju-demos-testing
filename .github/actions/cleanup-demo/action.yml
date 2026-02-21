@@ -9,26 +9,58 @@ runs:
   using: composite
   steps:
     - uses: hashicorp/setup-terraform@v3
-    - name: Install Juju
+
+    - name: Download Terraform state
+      uses: actions/download-artifact@v6
+      with:
+        name: tfstate-${{ inputs.demo-id }}
+        path: terraform/demo
+
+    - name: Write Terraform base config
       shell: bash
       run: |
-        sudo snap install juju
-    - name: Authenticate with JAAS
+        cat > terraform/demo/_base.tf << 'EOF'
+        terraform {
+          required_providers {
+            juju = {
+              source  = "juju/juju"
+              version = "~> 1.1.0"
+            }
+          }
+        }
+
+        # Credentials via JUJU_CLIENT_ID and JUJU_CLIENT_SECRET environment variables.
+        provider "juju" {
+          controller_addresses = "jaas.ps7.canonical.com:443/k8s-jaas-ps7-jimm-jimm"
+        }
+
+        data "juju_model" "demos" {
+          owner = "795798e4-922f-49c7-9169-004ffc17df90@serviceaccount"
+          name  = "k8s-webteam-demos-default"
+        }
+
+        variable "demo_id" {
+          description = "Unique identifier for this demo (e.g. my-repo-pr42)."
+          type        = string
+        }
+        EOF
+
+    - name: Terraform init
+      shell: bash
+      run: terraform -chdir=terraform/demo init
+
+    - name: Terraform destroy
       shell: bash
       env:
         JUJU_CLIENT_ID: ${{ secrets.DEMOS_JUJU_CLIENT_ID }}
         JUJU_CLIENT_SECRET: ${{ secrets.DEMOS_JUJU_CLIENT_SECRET }}
-      run: |
-        juju login jaas.ps7.canonical.com:443/k8s-jaas-ps7-jimm-jimm -c jaas-ps7
-    - name: Remove charm deployment
-      shell: bash
-      run: |
-        juju remove-application ${{ inputs.demo-id }} -m 795798e4-922f-49c7-9169-004ffc17df90@serviceaccount/k8s-webteam-demos-default --force --no-prompt || true
+        TF_VAR_demo_id: ${{ inputs.demo-id }}
+      run: terraform -chdir=terraform/demo destroy -auto-approve
+
     - name: Delete GHCR image
       shell: bash
       continue-on-error: true
       run: |
-        # Delete the package version from GHCR
         IMAGE_NAME="${{ github.repository }}:${{ inputs.demo-id }}"
         IMAGE_NAME_LOWER=$(echo "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')
         gh api --method DELETE "/orgs/${{ github.repository_owner }}/packages/container/$(basename $IMAGE_NAME_LOWER)/versions" || true
