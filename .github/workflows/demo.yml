@@ -28,6 +28,20 @@ jobs:
         run: |
           echo "id=${{ github.event.repository.name }}-pr${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
 
+  comment-pending:
+    name: Comment (Pending)
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Post pending comment
+        uses: ./.github/actions/demo-comment
+        with:
+          demo-id: ${{ needs.setup.outputs.demo-id }}
+          status: pending
+          run-id: ${{ github.run_id }}
+
   build-rock:
     name: Build Rock
     needs: setup
@@ -206,3 +220,4 @@ jobs:
         uses: ./.github/actions/demo-comment
         with:
           demo-id: ${{ needs.setup.outputs.demo-id }}
+          status: deployed
