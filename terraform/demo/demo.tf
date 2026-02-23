@@ -9,7 +9,7 @@ resource "juju_application" "demo" {
   }
 }
 
-resource "juju_integration" "demo_traefik" {
+resource "juju_integration" "demo_traefik_ingress" {
   model_uuid = data.juju_model.demos.uuid
 
   application {
