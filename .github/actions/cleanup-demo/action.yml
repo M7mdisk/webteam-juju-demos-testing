@@ -10,12 +10,6 @@ runs:
   steps:
     - uses: hashicorp/setup-terraform@v3
 
-    - name: Download Terraform state
-      uses: actions/download-artifact@v6
-      with:
-        name: tfstate-${{ inputs.demo-id }}
-        path: terraform/demo
-
     - name: Write Terraform base config
       shell: bash
       run: |
@@ -26,6 +20,19 @@ runs:
               source  = "juju/juju"
               version = "~> 1.1.0"
             }
+          }
+          backend "s3" {
+            bucket = "webteam-demos-ps7-tfstate"
+            region = "prodstack7"
+            endpoints = {
+              s3 = "https://radosgw.ps7.canonical.com"
+            }
+            skip_region_validation      = true
+            skip_credentials_validation = true
+            skip_requesting_account_id  = true
+            skip_s3_checksum            = true
+            use_path_style              = true
+            use_lockfile                = true
           }
         }
 
@@ -47,15 +54,30 @@ runs:
 
     - name: Terraform init
       shell: bash
-      run: terraform -chdir=terraform/demo init
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.DEMOS_S3_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.DEMOS_S3_SECRET_ACCESS_KEY }}
+      run: terraform -chdir=terraform/demo init -backend-config="key=demos/${{ inputs.demo-id }}/state"
 
     - name: Terraform destroy
       shell: bash
       env:
         JUJU_CLIENT_ID: ${{ secrets.DEMOS_JUJU_CLIENT_ID }}
         JUJU_CLIENT_SECRET: ${{ secrets.DEMOS_JUJU_CLIENT_SECRET }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.DEMOS_S3_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.DEMOS_S3_SECRET_ACCESS_KEY }}
         TF_VAR_demo_id: ${{ inputs.demo-id }}
       run: terraform -chdir=terraform/demo destroy -auto-approve
+
+    - name: Delete Terraform state from S3
+      shell: bash
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.DEMOS_S3_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.DEMOS_S3_SECRET_ACCESS_KEY }}
+      run: |
+        aws s3 rm s3://webteam-demos-ps7-tfstate/demos/${{ inputs.demo-id }}/state \
+          --endpoint-url https://radosgw.ps7.canonical.com \
+          --region prodstack7
 
     - name: Delete GHCR image
       shell: bash
