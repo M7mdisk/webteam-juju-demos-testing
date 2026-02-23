@@ -155,9 +155,17 @@ jobs:
           JUJU_CLIENT_SECRET: ${{ secrets.DEMOS_JUJU_CLIENT_SECRET }}
         run: |
           CHARM_FILE=$(ls *.charm)
-          juju deploy "./$CHARM_FILE" ${{ needs.setup.outputs.demo-id }} \
-            --resource flask-app-image=${{ steps.image-url.outputs.url }} \
-            -m 795798e4-922f-49c7-9169-004ffc17df90@serviceaccount/k8s-webteam-demos-default
+          MODEL="795798e4-922f-49c7-9169-004ffc17df90@serviceaccount/k8s-webteam-demos-default"
+          if juju show-application ${{ needs.setup.outputs.demo-id }} -m "$MODEL" &>/dev/null; then
+            juju refresh ${{ needs.setup.outputs.demo-id }} \
+              --path="./$CHARM_FILE" \
+              --resource flask-app-image=${{ steps.image-url.outputs.url }} \
+              -m "$MODEL"
+          else
+            juju deploy "./$CHARM_FILE" ${{ needs.setup.outputs.demo-id }} \
+              --resource flask-app-image=${{ steps.image-url.outputs.url }} \
+              -m "$MODEL"
+          fi
 
       - uses: hashicorp/setup-terraform@v3
 
@@ -170,6 +178,19 @@ jobs:
                 source  = "juju/juju"
                 version = "~> 1.1.0"
               }
+            }
+            backend "s3" {
+              bucket = "webteam-demos-ps7-tfstate"
+              region = "prodstack7"
+              endpoints = {
+                s3 = "https://radosgw.ps7.canonical.com"
+              }
+              skip_region_validation      = true
+              skip_credentials_validation = true
+              skip_requesting_account_id  = true
+              skip_s3_checksum            = true
+              use_path_style              = true
+              use_lockfile                = true
             }
           }
 
@@ -190,7 +211,10 @@ jobs:
           EOF
 
       - name: Terraform init
-        run: terraform -chdir=terraform/demo init
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.DEMOS_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DEMOS_S3_SECRET_ACCESS_KEY }}
+        run: terraform -chdir=terraform/demo init -backend-config="key=demos/${{ needs.setup.outputs.demo-id }}/state"
 
       - name: Run Juju imports
         if: hashFiles('terraform/demo/juju_imports.sh') != ''
@@ -206,15 +230,10 @@ jobs:
         env:
           JUJU_CLIENT_ID: ${{ secrets.DEMOS_JUJU_CLIENT_ID }}
           JUJU_CLIENT_SECRET: ${{ secrets.DEMOS_JUJU_CLIENT_SECRET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.DEMOS_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DEMOS_S3_SECRET_ACCESS_KEY }}
           TF_VAR_demo_id: ${{ needs.setup.outputs.demo-id }}
         run: terraform -chdir=terraform/demo apply -auto-approve
-
-      - name: Upload Terraform state
-        uses: actions/upload-artifact@v6
-        with:
-          name: tfstate-${{ needs.setup.outputs.demo-id }}
-          path: terraform/demo/terraform.tfstate
-          retention-days: 90
       
       - name: Post demo comment
         uses: ./.github/actions/demo-comment
