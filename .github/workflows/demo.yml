@@ -155,9 +155,17 @@ jobs:
           JUJU_CLIENT_SECRET: ${{ secrets.DEMOS_JUJU_CLIENT_SECRET }}
         run: |
           CHARM_FILE=$(ls *.charm)
-          juju deploy "./$CHARM_FILE" ${{ needs.setup.outputs.demo-id }} \
-            --resource flask-app-image=${{ steps.image-url.outputs.url }} \
-            -m 795798e4-922f-49c7-9169-004ffc17df90@serviceaccount/k8s-webteam-demos-default
+          MODEL="795798e4-922f-49c7-9169-004ffc17df90@serviceaccount/k8s-webteam-demos-default"
+          if juju show-application ${{ needs.setup.outputs.demo-id }} -m "$MODEL" &>/dev/null; then
+            juju refresh ${{ needs.setup.outputs.demo-id }} \
+              --path="./$CHARM_FILE" \
+              --resource flask-app-image=${{ steps.image-url.outputs.url }} \
+              -m "$MODEL"
+          else
+            juju deploy "./$CHARM_FILE" ${{ needs.setup.outputs.demo-id }} \
+              --resource flask-app-image=${{ steps.image-url.outputs.url }} \
+              -m "$MODEL"
+          fi
 
       - uses: hashicorp/setup-terraform@v3
 
