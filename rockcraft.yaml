@@ -17,3 +17,6 @@ platforms:
     # arm64:
     # ppc64el:
     # s390x:
+extensions:
+  - flask-framework
+
